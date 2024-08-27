@@ -68,6 +68,9 @@ typedef struct {
     Vector2 virtualMouse;
     Rectangle uiLocation;
     Rectangle windowEditParameters;
+    Rectangle renderBounds;
+    Rectangle dropdownBoxComponentSelector;
+    Rectangle UIBounds;
     bool isPreviewing;
     bool windowEdit;
     int previewX, previewY;
@@ -106,7 +109,7 @@ void RenderWindowEdit(AppState* state);
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Circuit simulator");
-    SetWindowMinSize(320, 240);
+    SetWindowMinSize(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     InitializeAppState();
 
@@ -127,19 +130,21 @@ int main(void) {
 
         HandleInput(&appState);
 
+        appState.renderBounds = (Rectangle){ (GetScreenWidth() - ((float)appState.renderScreenWidth*appState.scale))*0.5f, 
+                           (GetScreenHeight() - ((float)appState.renderScreenHeight*appState.scale))*0.5f,
+                           (float)appState.renderScreenWidth*appState.scale, (float)appState.renderScreenHeight*appState.scale };
+
         BeginTextureMode(target);
             ClearBackground(RAYWHITE);
             RenderGrid(&appState);
-            RenderUI(&appState);
             RenderPreview(&appState);
             RenderWindowEdit(&appState);
         EndTextureMode();
         
         BeginDrawing();
             ClearBackground(BLACK);
-            DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
-                           (Rectangle){ (GetScreenWidth() - ((float)appState.renderScreenWidth*appState.scale))*0.5f, (GetScreenHeight() - ((float)appState.renderScreenHeight*appState.scale))*0.5f,
-                           (float)appState.renderScreenWidth*appState.scale, (float)appState.renderScreenHeight*appState.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height }, appState.renderBounds, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            RenderUI(&appState);
         EndDrawing();
     }
 
@@ -165,6 +170,9 @@ void InitializeAppState(void) {
     appState.renderScreenWidth = SCREEN_WIDTH;
     appState.renderScreenHeight = SCREEN_HEIGHT;
     appState.scale = 0.0f;
+    appState.renderBounds = (Rectangle){0, 0, 0, 0};
+    appState.dropdownBoxComponentSelector = (Rectangle){ 25, 65, 125, 30 };
+    appState.UIBounds = (Rectangle){0, 0, 0, 0};
 
     InitComponentsGrid(appState.grid);
 }
@@ -224,7 +232,6 @@ void HandleInput(AppState* state) {
 }
 
 void HandleMouseInput(AppState* state) { 
-    printf("X: %f Y: %f\n", state->virtualMouse.x, state->virtualMouse.y);
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         if (state->virtualMouse.y >= UI_HEIGHT && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
             state->previewX = (int)(state->virtualMouse.x / COMPONENT_SIZE);
@@ -277,14 +284,24 @@ void RenderWindowEdit(AppState* state) {
 }
 
 void RenderUI(AppState* state) {
-    GuiPanel(appState.uiLocation, "Control Panel");
+    appState.UIBounds = (Rectangle){appState.uiLocation.x + appState.renderBounds.x,
+                        appState.uiLocation.y + appState.renderBounds.y,
+                        appState.renderBounds.width,
+                        (float)appState.uiLocation.height*appState.scale};
+
+    float uiScale = MIN((float)appState.UIBounds.width/appState.renderScreenWidth, (float)appState.UIBounds.height/appState.renderScreenHeight);
+
+    GuiPanel(appState.UIBounds, "Control Panel");
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
     GuiSetStyle(DROPDOWNBOX, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
     if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor", &appState.dropdownBoxActive, appState.uiState == UI_STATE_DROPDOWN_ACTIVE))
         appState.uiState = (appState.uiState == UI_STATE_DROPDOWN_ACTIVE) ? UI_STATE_NONE : UI_STATE_DROPDOWN_ACTIVE;
 
-    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Draw"))
+    if (GuiButton((Rectangle){ (float)BUTTON_X_POSITION_START*uiScale, 
+    (float)BUTTON_Y_POSITION*uiScale, 
+    (float)BUTTON_WIDTH*uiScale, 
+    (float)BUTTON_HEIGHT*uiScale }, "Draw"))
         appState.currentAction = ACTION_DRAW;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Edit"))
         appState.currentAction = ACTION_EDIT;
