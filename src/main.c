@@ -1,13 +1,9 @@
 #include "raylib.h"
-#include "raymath.h"
 #include <stdlib.h>
 #include <stdio.h>
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
-
-#define MAX(a, b) ((a)>(b)? (a) : (b))
-#define MIN(a, b) ((a)<(b)? (a) : (b))
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -28,7 +24,6 @@
 #define ROTATION_270 270
 #define ROTATION_360 360
 
-
 typedef enum {
     COMPONENT_EMPTY,
     COMPONENT_WIRE,
@@ -45,7 +40,7 @@ typedef enum {
 
 typedef enum {
     UI_STATE_NONE,
-    UI_STATE_DROPDOWN_ACTIVE
+    UI_STATE_DROPDOWN_ACTIVE,
 } UIState;
 
 typedef struct {
@@ -65,20 +60,12 @@ typedef struct {
 typedef struct {
     Component grid[GRID_WIDTH][GRID_HEIGHT];
     ComponentInfo componentInfos[NUMBER_OF_COMPONENTS];
-    Vector2 virtualMouse;
+    Vector2 mousePosition;
     Rectangle uiLocation;
-    Rectangle windowEditParameters;
-    Rectangle renderBounds;
-    Rectangle dropdownBoxComponentSelector;
-    Rectangle UIBounds;
     bool isPreviewing;
-    bool windowEdit;
     int previewX, previewY;
     int dropdownBoxActive;
     int componentRotation;
-    int renderScreenWidth;
-    int renderScreenHeight;
-    float scale;
     ActionType currentAction;
     UIState uiState;
 } AppState;
@@ -102,53 +89,29 @@ void RotateComponent(AppState* state);
 Texture2D GetRotatedTexture(int rotation, ComponentInfo* info);
 void HandleDrawAction(AppState* state);
 void HandleDeleteAction(AppState* state);
-void HandleEditAction(AppState* state);
 void LoadComponentTextures(ComponentInfo* info, const char* basePath);
-void RenderWindowEdit(AppState* state);
 
 int main(void) {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Circuit simulator");
-    SetWindowMinSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Electric circuits simulator");
 
     InitializeAppState();
-
-    RenderTexture2D target = LoadRenderTexture(appState.renderScreenWidth, appState.renderScreenHeight);
-    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+    LoadResources(&appState);
 
     SetTargetFPS(60);
 
-    LoadResources(&appState);
-
     while (!WindowShouldClose()) {
-        appState.scale = MIN((float)GetScreenWidth()/appState.renderScreenWidth, (float)GetScreenHeight()/appState.renderScreenHeight);
-        
-        Vector2 mouse = GetMousePosition();
-        appState.virtualMouse.x = (mouse.x - (GetScreenWidth() - (appState.renderScreenWidth*appState.scale))*0.5f)/appState.scale;
-        appState.virtualMouse.y = (mouse.y - (GetScreenHeight() - (appState.renderScreenHeight*appState.scale))*0.5f)/appState.scale;
-        appState.virtualMouse = Vector2Clamp(appState.virtualMouse, (Vector2){ 0, 0 }, (Vector2){ (float)appState.renderScreenWidth, (float)appState.renderScreenHeight });
-
         HandleInput(&appState);
 
-        appState.renderBounds = (Rectangle){ (GetScreenWidth() - ((float)appState.renderScreenWidth*appState.scale))*0.5f, 
-                           (GetScreenHeight() - ((float)appState.renderScreenHeight*appState.scale))*0.5f,
-                           (float)appState.renderScreenWidth*appState.scale, (float)appState.renderScreenHeight*appState.scale };
-
-        BeginTextureMode(target);
-            ClearBackground(RAYWHITE);
-            RenderGrid(&appState);
-            RenderPreview(&appState);
-            RenderWindowEdit(&appState);
-        EndTextureMode();
-        
         BeginDrawing();
-            ClearBackground(BLACK);
-            DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height }, appState.renderBounds, (Vector2){ 0, 0 }, 0.0f, WHITE);
-            RenderUI(&appState);
+        ClearBackground(RAYWHITE);
+
+        RenderGrid(&appState);
+        RenderUI(&appState);
+        RenderPreview(&appState);
+
         EndDrawing();
     }
 
-    UnloadRenderTexture(target);
     UnloadResources(&appState);
     CloseWindow();
 
@@ -164,15 +127,6 @@ void InitializeAppState(void) {
     appState.componentRotation = 0;
     appState.currentAction = ACTION_NONE;
     appState.uiState = UI_STATE_NONE;
-    appState.windowEditParameters = (Rectangle){0, 0, 500.0f, 500.0f};
-    appState.windowEdit = false;
-    appState.virtualMouse = (Vector2){ 0 };
-    appState.renderScreenWidth = SCREEN_WIDTH;
-    appState.renderScreenHeight = SCREEN_HEIGHT;
-    appState.scale = 0.0f;
-    appState.renderBounds = (Rectangle){0, 0, 0, 0};
-    appState.dropdownBoxComponentSelector = (Rectangle){ 25, 65, 125, 30 };
-    appState.UIBounds = (Rectangle){0, 0, 0, 0};
 
     InitComponentsGrid(appState.grid);
 }
@@ -231,11 +185,12 @@ void HandleInput(AppState* state) {
     HandleKeyboardInput(state);
 }
 
-void HandleMouseInput(AppState* state) { 
+void HandleMouseInput(AppState* state) {
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        if (state->virtualMouse.y >= UI_HEIGHT && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
-            state->previewX = (int)(state->virtualMouse.x / COMPONENT_SIZE);
-            state->previewY = (int)((state->virtualMouse.y - UI_HEIGHT) / COMPONENT_SIZE);
+        state->mousePosition = GetMousePosition();
+        if (state->mousePosition.y >= UI_HEIGHT && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
+            state->previewX = (int)(state->mousePosition.x / COMPONENT_SIZE);
+            state->previewY = (int)((state->mousePosition.y - UI_HEIGHT) / COMPONENT_SIZE);
             if (state->previewX >= 0 && state->previewX < GRID_WIDTH && state->previewY >= 0 && state->previewY < GRID_HEIGHT) {
                 state->isPreviewing = true;
             } else {
@@ -247,10 +202,8 @@ void HandleMouseInput(AppState* state) {
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         if (state->isPreviewing && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
             switch (state->currentAction) {
-                case ACTION_NONE: break;
                 case ACTION_DRAW: HandleDrawAction(state); break;
                 case ACTION_DELETE: HandleDeleteAction(state); break;
-                case ACTION_EDIT: HandleEditAction(state); break;
                 // Handle editing logic here if needed
             }
         }
@@ -274,34 +227,15 @@ void HandleDeleteAction(AppState* state) {
     state->grid[state->previewX][state->previewY].rotation = 0;
 }
 
-void HandleEditAction(AppState* state) {
-    state->windowEdit = !state->windowEdit;
-}
-
-void RenderWindowEdit(AppState* state) {
-    if (!state->windowEdit) return;
-    GuiWindowBox(state->windowEditParameters, "Edit component");
-}
-
 void RenderUI(AppState* state) {
-    appState.UIBounds = (Rectangle){appState.uiLocation.x + appState.renderBounds.x,
-                        appState.uiLocation.y + appState.renderBounds.y,
-                        appState.renderBounds.width,
-                        (float)appState.uiLocation.height*appState.scale};
-
-    float uiScale = MIN((float)appState.UIBounds.width/appState.renderScreenWidth, (float)appState.UIBounds.height/appState.renderScreenHeight);
-
-    GuiPanel(appState.UIBounds, "Control Panel");
+    GuiPanel(appState.uiLocation, "Control Panel");
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
     GuiSetStyle(DROPDOWNBOX, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
     if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor", &appState.dropdownBoxActive, appState.uiState == UI_STATE_DROPDOWN_ACTIVE))
         appState.uiState = (appState.uiState == UI_STATE_DROPDOWN_ACTIVE) ? UI_STATE_NONE : UI_STATE_DROPDOWN_ACTIVE;
 
-    if (GuiButton((Rectangle){ (float)BUTTON_X_POSITION_START*uiScale, 
-    (float)BUTTON_Y_POSITION*uiScale, 
-    (float)BUTTON_WIDTH*uiScale, 
-    (float)BUTTON_HEIGHT*uiScale }, "Draw"))
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Draw"))
         appState.currentAction = ACTION_DRAW;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Edit"))
         appState.currentAction = ACTION_EDIT;
