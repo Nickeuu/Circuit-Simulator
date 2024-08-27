@@ -1,0 +1,344 @@
+#include "raylib.h"
+#include "raymath.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
+
+#define MAX(a, b) ((a)>(b)? (a) : (b))
+#define MIN(a, b) ((a)<(b)? (a) : (b))
+
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 768
+#define UI_HEIGHT 128
+#define COMPONENT_SIZE 32
+#define GRID_WIDTH (SCREEN_WIDTH / COMPONENT_SIZE)
+#define GRID_HEIGHT ((SCREEN_HEIGHT - UI_HEIGHT) / COMPONENT_SIZE)
+
+#define BUTTON_WIDTH 80
+#define BUTTON_HEIGHT 30
+#define BUTTON_Y_POSITION 65
+#define BUTTON_X_POSITION_START 170
+#define BUTTON_X_POSITION_OFFSET 90
+
+#define NUMBER_OF_COMPONENTS 3
+#define ROTATION_90 90
+#define ROTATION_180 180
+#define ROTATION_270 270
+#define ROTATION_360 360
+
+
+typedef enum {
+    COMPONENT_EMPTY,
+    COMPONENT_WIRE,
+    COMPONENT_RESISTOR,
+    COMPONENT_CAPACITOR
+} ComponentType;
+
+typedef enum {
+    ACTION_NONE,
+    ACTION_DRAW,
+    ACTION_EDIT,
+    ACTION_DELETE
+} ActionType;
+
+typedef enum {
+    UI_STATE_NONE,
+    UI_STATE_DROPDOWN_ACTIVE
+} UIState;
+
+typedef struct {
+    const char* name;
+    Texture2D texture;
+    Texture2D textureRotated90;
+    Texture2D textureRotated180;
+    Texture2D textureRotated270;
+} ComponentInfo;
+
+typedef struct {
+    ComponentType type;
+    int value;
+    int rotation;
+} Component;
+
+typedef struct {
+    Component grid[GRID_WIDTH][GRID_HEIGHT];
+    ComponentInfo componentInfos[NUMBER_OF_COMPONENTS];
+    Vector2 virtualMouse;
+    Rectangle uiLocation;
+    Rectangle windowEditParameters;
+    bool isPreviewing;
+    bool windowEdit;
+    int previewX, previewY;
+    int dropdownBoxActive;
+    int componentRotation;
+    int renderScreenWidth;
+    int renderScreenHeight;
+    float scale;
+    ActionType currentAction;
+    UIState uiState;
+} AppState;
+
+AppState appState;
+
+// Function prototypes
+void InitializeAppState(void);
+void InitComponentsGrid(Component grid[GRID_WIDTH][GRID_HEIGHT]);
+void RenderGrid(AppState* state);
+void DrawComponent(ComponentType type, AppState* state, int x, int y, int gridY);
+void HandleInput(AppState* state);
+void HandleMouseInput(AppState* state);
+void HandleKeyboardInput(AppState* state);
+void LoadResources(AppState* state);
+void UnloadResources(AppState* state);
+void RenderUI(AppState* state);
+void RenderPreview(AppState* state);
+void CheckTextureLoad(Texture2D texture, const char* filePath);
+void RotateComponent(AppState* state);
+Texture2D GetRotatedTexture(int rotation, ComponentInfo* info);
+void HandleDrawAction(AppState* state);
+void HandleDeleteAction(AppState* state);
+void HandleEditAction(AppState* state);
+void LoadComponentTextures(ComponentInfo* info, const char* basePath);
+void RenderWindowEdit(AppState* state);
+
+int main(void) {
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Circuit simulator");
+    SetWindowMinSize(320, 240);
+
+    InitializeAppState();
+
+    RenderTexture2D target = LoadRenderTexture(appState.renderScreenWidth, appState.renderScreenHeight);
+    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+
+    SetTargetFPS(60);
+
+    LoadResources(&appState);
+
+    while (!WindowShouldClose()) {
+        appState.scale = MIN((float)GetScreenWidth()/appState.renderScreenWidth, (float)GetScreenHeight()/appState.renderScreenHeight);
+        
+        Vector2 mouse = GetMousePosition();
+        appState.virtualMouse.x = (mouse.x - (GetScreenWidth() - (appState.renderScreenWidth*appState.scale))*0.5f)/appState.scale;
+        appState.virtualMouse.y = (mouse.y - (GetScreenHeight() - (appState.renderScreenHeight*appState.scale))*0.5f)/appState.scale;
+        appState.virtualMouse = Vector2Clamp(appState.virtualMouse, (Vector2){ 0, 0 }, (Vector2){ (float)appState.renderScreenWidth, (float)appState.renderScreenHeight });
+
+        HandleInput(&appState);
+
+        BeginTextureMode(target);
+            ClearBackground(RAYWHITE);
+            RenderGrid(&appState);
+            RenderUI(&appState);
+            RenderPreview(&appState);
+            RenderWindowEdit(&appState);
+        EndTextureMode();
+        
+        BeginDrawing();
+            ClearBackground(BLACK);
+            DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
+                           (Rectangle){ (GetScreenWidth() - ((float)appState.renderScreenWidth*appState.scale))*0.5f, (GetScreenHeight() - ((float)appState.renderScreenHeight*appState.scale))*0.5f,
+                           (float)appState.renderScreenWidth*appState.scale, (float)appState.renderScreenHeight*appState.scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        EndDrawing();
+    }
+
+    UnloadRenderTexture(target);
+    UnloadResources(&appState);
+    CloseWindow();
+
+    return 0;
+}
+
+void InitializeAppState(void) {
+    appState.uiLocation = (Rectangle){0, 0, SCREEN_WIDTH, UI_HEIGHT};
+    appState.isPreviewing = false;
+    appState.previewX = -1;
+    appState.previewY = -1;
+    appState.dropdownBoxActive = 0;
+    appState.componentRotation = 0;
+    appState.currentAction = ACTION_NONE;
+    appState.uiState = UI_STATE_NONE;
+    appState.windowEditParameters = (Rectangle){0, 0, 500.0f, 500.0f};
+    appState.windowEdit = false;
+    appState.virtualMouse = (Vector2){ 0 };
+    appState.renderScreenWidth = SCREEN_WIDTH;
+    appState.renderScreenHeight = SCREEN_HEIGHT;
+    appState.scale = 0.0f;
+
+    InitComponentsGrid(appState.grid);
+}
+
+void InitComponentsGrid(Component grid[GRID_WIDTH][GRID_HEIGHT]) {
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            grid[x][y].type = COMPONENT_EMPTY;
+            grid[x][y].value = 0;
+            grid[x][y].rotation = 0;
+        }
+    }
+}
+
+void RenderGrid(AppState* state) {
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            int componentY = (y * COMPONENT_SIZE) + UI_HEIGHT;
+            DrawComponent(state->grid[x][y].type, state, x, componentY, y);
+            DrawLine(x * COMPONENT_SIZE, UI_HEIGHT, x * COMPONENT_SIZE, SCREEN_HEIGHT, LIGHTGRAY);
+            DrawLine(0, y * COMPONENT_SIZE + UI_HEIGHT, SCREEN_WIDTH, y * COMPONENT_SIZE + UI_HEIGHT, LIGHTGRAY);
+        }
+    }
+}
+
+void DrawComponent(ComponentType type, AppState* state, int x, int y, int gridY) {
+    if (type != COMPONENT_EMPTY) {
+        Texture2D texture = GetRotatedTexture(state->grid[x][gridY].rotation, &state->componentInfos[type - 1]);
+        DrawTexture(texture, x * COMPONENT_SIZE, y, WHITE);
+    }
+}
+
+Texture2D GetRotatedTexture(int rotation, ComponentInfo* info) {
+    switch (rotation) {
+        case ROTATION_90: return info->textureRotated90;
+        case ROTATION_180: return info->textureRotated180;
+        case ROTATION_270: return info->textureRotated270;
+        default: return info->texture;
+    }
+}
+
+void RotateComponent(AppState* state) {
+    if (state->currentAction == ACTION_DRAW) {
+        if (!(state->dropdownBoxActive >= 0 && state->dropdownBoxActive <= 2)) {
+            state->componentRotation += ROTATION_90;
+            if (state->componentRotation == ROTATION_360) state->componentRotation = 0;
+        } else {
+            state->componentRotation += ROTATION_90;
+            if (state->componentRotation == ROTATION_180) state->componentRotation = 0;
+        }
+    }
+}
+
+void HandleInput(AppState* state) {
+    HandleMouseInput(state);
+    HandleKeyboardInput(state);
+}
+
+void HandleMouseInput(AppState* state) { 
+    printf("X: %f Y: %f\n", state->virtualMouse.x, state->virtualMouse.y);
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        if (state->virtualMouse.y >= UI_HEIGHT && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
+            state->previewX = (int)(state->virtualMouse.x / COMPONENT_SIZE);
+            state->previewY = (int)((state->virtualMouse.y - UI_HEIGHT) / COMPONENT_SIZE);
+            if (state->previewX >= 0 && state->previewX < GRID_WIDTH && state->previewY >= 0 && state->previewY < GRID_HEIGHT) {
+                state->isPreviewing = true;
+            } else {
+                state->isPreviewing = false;
+            }
+        }
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (state->isPreviewing && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
+            switch (state->currentAction) {
+                case ACTION_NONE: break;
+                case ACTION_DRAW: HandleDrawAction(state); break;
+                case ACTION_DELETE: HandleDeleteAction(state); break;
+                case ACTION_EDIT: HandleEditAction(state); break;
+                // Handle editing logic here if needed
+            }
+        }
+        state->isPreviewing = false;
+    }
+}
+
+void HandleKeyboardInput(AppState* state) {
+    if (IsKeyReleased(KEY_R)) {
+        RotateComponent(state);
+    }
+}
+
+void HandleDrawAction(AppState* state) {
+    state->grid[state->previewX][state->previewY].type = state->dropdownBoxActive + 1;
+    state->grid[state->previewX][state->previewY].rotation = state->componentRotation;
+}
+
+void HandleDeleteAction(AppState* state) {
+    state->grid[state->previewX][state->previewY].type = COMPONENT_EMPTY;
+    state->grid[state->previewX][state->previewY].rotation = 0;
+}
+
+void HandleEditAction(AppState* state) {
+    state->windowEdit = !state->windowEdit;
+}
+
+void RenderWindowEdit(AppState* state) {
+    if (!state->windowEdit) return;
+    GuiWindowBox(state->windowEditParameters, "Edit component");
+}
+
+void RenderUI(AppState* state) {
+    GuiPanel(appState.uiLocation, "Control Panel");
+
+    GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
+    GuiSetStyle(DROPDOWNBOX, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+    if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor", &appState.dropdownBoxActive, appState.uiState == UI_STATE_DROPDOWN_ACTIVE))
+        appState.uiState = (appState.uiState == UI_STATE_DROPDOWN_ACTIVE) ? UI_STATE_NONE : UI_STATE_DROPDOWN_ACTIVE;
+
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Draw"))
+        appState.currentAction = ACTION_DRAW;
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Edit"))
+        appState.currentAction = ACTION_EDIT;
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 2 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Delete"))
+        appState.currentAction = ACTION_DELETE;
+}
+
+void RenderPreview(AppState* state) {
+    if (!state->isPreviewing || state->previewX < 0 || state->previewY < 0) return;
+
+    int previewHeight = state->previewY * COMPONENT_SIZE + UI_HEIGHT;
+    if (state->currentAction == ACTION_DRAW) {
+        if (state->dropdownBoxActive >= 0 && state->dropdownBoxActive <= 2) {
+            Texture2D previewTexture = (state->componentRotation == 0 || state->componentRotation == ROTATION_180) ?
+                state->componentInfos[state->dropdownBoxActive].texture :
+                state->componentInfos[state->dropdownBoxActive].textureRotated90;
+            DrawTexture(previewTexture, state->previewX * COMPONENT_SIZE, previewHeight, Fade(WHITE, 0.5f));
+        }
+    }
+}
+
+void LoadResources(AppState* state) {
+    LoadComponentTextures(&state->componentInfos[0], "resources/wire");
+    LoadComponentTextures(&state->componentInfos[1], "resources/resistor");
+    LoadComponentTextures(&state->componentInfos[2], "resources/capacitor");
+}
+
+void LoadComponentTextures(ComponentInfo* info, const char* basePath) {
+    char filePath[128];
+    
+    snprintf(filePath, sizeof(filePath), "%s.png", basePath);
+    info->texture = LoadTexture(filePath);
+
+    snprintf(filePath, sizeof(filePath), "%s_rotated.png", basePath);
+    info->textureRotated90 = LoadTexture(filePath);
+
+    // Load other rotations similarly if available
+    CheckTextureLoad(info->texture, filePath);
+    CheckTextureLoad(info->textureRotated90, filePath);
+}
+
+void CheckTextureLoad(Texture2D texture, const char* filePath) {
+    if (texture.id == 0) {
+        UnloadResources(&appState);
+        CloseWindow();
+        exit(EXIT_FAILURE);
+    }
+}
+
+void UnloadResources(AppState* state) {
+    for (int i = 0; i < NUMBER_OF_COMPONENTS; i++) {
+        UnloadTexture(state->componentInfos[i].texture);
+        UnloadTexture(state->componentInfos[i].textureRotated90);
+        UnloadTexture(state->componentInfos[i].textureRotated180);
+        UnloadTexture(state->componentInfos[i].textureRotated270);
+    }
+}
