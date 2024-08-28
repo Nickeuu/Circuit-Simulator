@@ -69,6 +69,9 @@ typedef struct {
     int componentRotation;
     ActionType currentAction;
     UIState uiState;
+    int editX, editY;      // Position of the component being edited
+    float editValue;       // Keep this as float if needed for calculations
+    char valueText[8];     // Add a text buffer to hold the value input
 } AppState;
 
 AppState appState;
@@ -107,7 +110,7 @@ int main(void) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        RenderGrid(&appState);
+        RenderGrid(&appState); 
         RenderUI(&appState);
         RenderPreview(&appState);
 
@@ -232,11 +235,20 @@ void HandleDeleteAction(AppState* state) {
 }
 
 void HandleEditAction(AppState* state) {
-    if (!state->isEditing)
-        state->isEditing = !state->isEditing;
+    if (!state->isEditing && state->grid[state->previewX][state->previewY].type != COMPONENT_EMPTY) {
+        state->isEditing = true;
+        state->editX = state->previewX;
+        state->editY = state->previewY;
+        state->editValue = state->grid[state->editX][state->editY].value; // Load current value
+
+        // Initialize text buffer with the current value
+        snprintf(state->valueText, sizeof(state->valueText), "%d", state->grid[state->editX][state->editY].value);
+    }
 }
 
+
 void RenderUI(AppState* state) {
+    if (!state->isEditing) GuiUnlock();
     GuiPanel(appState.uiLocation, "Control Panel");
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
@@ -250,12 +262,39 @@ void RenderUI(AppState* state) {
         appState.currentAction = ACTION_EDIT;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 2 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Delete"))
         appState.currentAction = ACTION_DELETE;
-
+ 
     if (state->isEditing) {
+        GuiUnlock();
+        
+        // Close the window if the X button is clicked
+        if (GuiWindowBox((Rectangle){300, 200, 250, 150}, "Edit Component")) {
+            state->isEditing = false;
+        } else {
+            // Text box for component value input
+            if (GuiTextBox((Rectangle){310, 250, 120, 30}, state->valueText, sizeof(state->valueText), true)) {
+                state->editValue = atof(state->valueText);  // Convert text input to float
+            }
+
+            // Apply button to save changes
+            if (GuiButton((Rectangle){310, 300, 100, 30}, "Apply")) {
+                state->grid[state->editX][state->editY].value = (int)state->editValue;  // Cast to int if needed
+                state->isEditing = false;
+            }
+
+            // Cancel button to discard changes
+            if (GuiButton((Rectangle){420, 300, 100, 30}, "Cancel")) {
+                state->isEditing = false;
+            }
+        }
+        
         GuiLock();
-        GuiWindowBox((Rectangle){300,300,200,300}, "Edit component");
     }
 }
+
+
+
+
+
 
 void RenderPreview(AppState* state) {
     if (!state->isPreviewing || state->previewX < 0 || state->previewY < 0) return;
