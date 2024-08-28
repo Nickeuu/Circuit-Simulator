@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <gtk/gtk.h>
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
@@ -63,6 +64,7 @@ typedef struct {
     Vector2 mousePosition;
     Rectangle uiLocation;
     bool isPreviewing;
+    bool isEditing;
     int previewX, previewY;
     int dropdownBoxActive;
     int componentRotation;
@@ -89,9 +91,57 @@ void RotateComponent(AppState* state);
 Texture2D GetRotatedTexture(int rotation, ComponentInfo* info);
 void HandleDrawAction(AppState* state);
 void HandleDeleteAction(AppState* state);
+void HandleEditAction(AppState* state);
 void LoadComponentTextures(ComponentInfo* info, const char* basePath);
+void create_edit_window();
+void on_edit_component(GtkWidget *widget, gpointer data);
 
-int main(void) {
+// Function to handle editing component values with GTK
+void on_edit_component(GtkWidget *widget, gpointer data) {
+    // Retrieve the values from GTK widgets and update the component in the appState
+    GtkWidget **widgets = (GtkWidget **)data;
+    const gchar *value_str = gtk_entry_get_text(GTK_ENTRY(widgets[0]));
+    int new_value = atoi(value_str);
+
+    // Update the currently selected component
+    int x = appState.previewX;
+    int y = appState.previewY;
+    if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
+        appState.grid[x][y].value = new_value;
+        appState.isEditing = false;
+        gtk_widget_destroy(GTK_WIDGET(widgets[1]));  // Close the GTK window
+    }
+}
+
+// Function to create the GTK window for editing
+void create_edit_window() {
+    GtkWidget *window;
+    GtkWidget *vbox;
+    GtkWidget *entry;
+    GtkWidget *button;
+
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "Edit Component");
+    gtk_window_set_default_size(GTK_WINDOW(window), 200, 100);
+
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_container_add(GTK_CONTAINER(window), vbox);
+
+    entry = gtk_entry_new();
+    gtk_box_pack_start(GTK_BOX(vbox), entry, TRUE, TRUE, 0);
+
+    button = gtk_button_new_with_label("Save");
+    gtk_box_pack_start(GTK_BOX(vbox), button, TRUE, TRUE, 0);
+
+    GtkWidget *widgets[2] = { entry, window };
+    g_signal_connect(button, "clicked", G_CALLBACK(on_edit_component), widgets);
+
+    gtk_widget_show_all(window);
+}
+
+int main(int argc, char *argv[]) {
+    gtk_init(&argc, &argv);  // Initialize GTK
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Electric circuits simulator");
 
     InitializeAppState();
@@ -110,6 +160,12 @@ int main(void) {
         RenderPreview(&appState);
 
         EndDrawing();
+
+        // Check if we should open the GTK editor window
+        if (appState.isEditing) {
+            create_edit_window();  // Open GTK window to edit the component
+            gtk_main_iteration();  // Process GTK events
+        }
     }
 
     UnloadResources(&appState);
@@ -121,6 +177,7 @@ int main(void) {
 void InitializeAppState(void) {
     appState.uiLocation = (Rectangle){0, 0, SCREEN_WIDTH, UI_HEIGHT};
     appState.isPreviewing = false;
+    appState.isEditing = false;
     appState.previewX = -1;
     appState.previewY = -1;
     appState.dropdownBoxActive = 0;
@@ -202,9 +259,10 @@ void HandleMouseInput(AppState* state) {
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         if (state->isPreviewing && state->uiState != UI_STATE_DROPDOWN_ACTIVE) {
             switch (state->currentAction) {
+                case ACTION_NONE: break;
                 case ACTION_DRAW: HandleDrawAction(state); break;
                 case ACTION_DELETE: HandleDeleteAction(state); break;
-                // Handle editing logic here if needed
+                case ACTION_EDIT: HandleEditAction(state); break;
             }
         }
         state->isPreviewing = false;
@@ -227,6 +285,11 @@ void HandleDeleteAction(AppState* state) {
     state->grid[state->previewX][state->previewY].rotation = 0;
 }
 
+void HandleEditAction(AppState* state) {
+    if (!state->isEditing)
+        state->isEditing = !state->isEditing;
+}
+
 void RenderUI(AppState* state) {
     GuiPanel(appState.uiLocation, "Control Panel");
 
@@ -241,6 +304,11 @@ void RenderUI(AppState* state) {
         appState.currentAction = ACTION_EDIT;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 2 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Delete"))
         appState.currentAction = ACTION_DELETE;
+
+    if (state->isEditing) {
+        GuiLock();
+        GuiWindowBox((Rectangle){300,300,200,300}, "Edit component");
+    }
 }
 
 void RenderPreview(AppState* state) {
