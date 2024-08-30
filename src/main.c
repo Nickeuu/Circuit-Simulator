@@ -44,7 +44,8 @@ typedef enum {
     ACTION_NONE,
     ACTION_DRAW,
     ACTION_EDIT,
-    ACTION_DELETE
+    ACTION_DELETE,
+    ACTION_SIMULATE
 } ActionType;
 
 // Enumeration for UI state management
@@ -77,6 +78,7 @@ typedef struct {
     Rectangle uiLocation;                            // Location of the UI panel
     bool isPreviewing;                               // Flag for preview mode
     bool isEditing;                                  // Flag for edit mode
+    bool isSimulating;                               // Flag for simulating mode
     int previewX, previewY;                          // Preview position on the grid
     int dropdownBoxActive;                           // Index of the active dropdown box selection
     int componentRotation;                           // Current rotation of the component
@@ -134,6 +136,8 @@ int main(void) {
         RenderUI(&appState);    // Render the UI
         RenderPreview(&appState);  // Render the preview of the current action
 
+        if (appState.isSimulating) HandleSimulationAction(&appState);   // Render the simulation if is set to run
+
         EndDrawing();  // End drawing
     }
 
@@ -155,6 +159,7 @@ void InitializeAppState(void) {
     appState.componentRotation = 0;
     appState.currentAction = ACTION_NONE;
     appState.uiState = UI_STATE_NONE;
+    appState.isSimulating = false;
 
     InitComponentsGrid(appState.grid);  // Initialize the grid with empty components
 }
@@ -241,6 +246,7 @@ void HandleMouseInput(AppState* state) {
                 case ACTION_DRAW: HandleDrawAction(state); break;
                 case ACTION_DELETE: HandleDeleteAction(state); break;
                 case ACTION_EDIT: HandleEditAction(state); break;
+                case ACTION_SIMULATE: state->isSimulating = true; break;
             }
         }
         state->isPreviewing = false;
@@ -280,6 +286,10 @@ void HandleEditAction(AppState* state) {
     }
 }
 
+void HandleSimulationAction(AppState* state) {
+    
+}
+
 // Function to render the UI elements
 void RenderUI(AppState* state) {
     if (!state->isEditing) GuiUnlock();
@@ -296,6 +306,8 @@ void RenderUI(AppState* state) {
         appState.currentAction = ACTION_EDIT;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 2 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Delete"))
         appState.currentAction = ACTION_DELETE;
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 3 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Simulate"))
+        appState.currentAction = ACTION_SIMULATE;
  
     if (state->isEditing) {
         GuiUnlock();
