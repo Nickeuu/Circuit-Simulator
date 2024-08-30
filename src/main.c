@@ -232,6 +232,7 @@ void HandleDrawAction(AppState* state) {
 void HandleDeleteAction(AppState* state) {
     state->grid[state->previewX][state->previewY].type = COMPONENT_EMPTY;
     state->grid[state->previewX][state->previewY].rotation = 0;
+    state->grid[state->previewX][state->previewY].value = 0;
 }
 
 void HandleEditAction(AppState* state) {
@@ -290,11 +291,6 @@ void RenderUI(AppState* state) {
         GuiLock();
     }
 }
-
-
-
-
-
 
 void RenderPreview(AppState* state) {
     if (!state->isPreviewing || state->previewX < 0 || state->previewY < 0) return;
