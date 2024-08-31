@@ -23,7 +23,7 @@
 #define BUTTON_X_POSITION_OFFSET 90
 
 // Number of different components in the simulation
-#define NUMBER_OF_COMPONENTS 3
+#define NUMBER_OF_COMPONENTS 8
 
 // Rotation angles
 #define ROTATION_90 90
@@ -36,7 +36,12 @@ typedef enum {
     COMPONENT_EMPTY,
     COMPONENT_WIRE,
     COMPONENT_RESISTOR,
-    COMPONENT_CAPACITOR
+    COMPONENT_CAPACITOR,
+    COMPONENT_BATTERY,
+    COMPONENT_WIRE_CORNER,
+    COMPONENT_WIRE_INTERSECTION_3WAY,
+    COMPONENT_WIRE_INTERSECTION_4WAY,
+    COMPONENT_PROBE
 } ComponentType;
 
 // Enumeration for different user actions
@@ -56,7 +61,7 @@ typedef enum {
 
 // Structure to hold information about each component
 typedef struct {
-    const char* name;
+    int nrOfRotations;
     Texture2D texture;
     Texture2D textureRotated90;
     Texture2D textureRotated180;
@@ -110,6 +115,7 @@ void HandleDrawAction(AppState* state);
 void HandleDeleteAction(AppState* state);
 void HandleEditAction(AppState* state);
 void LoadComponentTextures(ComponentInfo* info, const char* basePath);
+void HandleSimulationAction(AppState* state);
 
 int main(void) {
     // Initialize the window with specified dimensions and title
@@ -208,13 +214,20 @@ Texture2D GetRotatedTexture(int rotation, ComponentInfo* info) {
 // Function to rotate the currently selected component
 void RotateComponent(AppState* state) {
     if (state->currentAction == ACTION_DRAW) {
-        if (!(state->dropdownBoxActive >= 0 && state->dropdownBoxActive <= 2)) {
-            state->componentRotation += ROTATION_90;
-            if (state->componentRotation == ROTATION_360) state->componentRotation = 0;
-        } else {
+        int componentType = state->grid[state->previewX][state->previewY].type - 1;
+
+        // Check for components without rotation
+        if (state->componentInfos[componentType].nrOfRotations == 0) return;
+
+        // Check for components with only 1 rotation
+        if (state->componentInfos[componentType].nrOfRotations == 1) {
             state->componentRotation += ROTATION_90;
             if (state->componentRotation == ROTATION_180) state->componentRotation = 0;
         }
+
+        // Components with all 3 rotations
+        state->componentRotation += ROTATION_90;
+        if (state->componentRotation == ROTATION_360) state->componentRotation = 0;
     }
 }
 
@@ -297,7 +310,8 @@ void RenderUI(AppState* state) {
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
     GuiSetStyle(DROPDOWNBOX, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
-    if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor", &appState.dropdownBoxActive, appState.uiState == UI_STATE_DROPDOWN_ACTIVE))
+    if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor;Battery;Wire corner;Wire intersection (3 way);Wire intersection (4 way)", 
+        &appState.dropdownBoxActive, appState.uiState == UI_STATE_DROPDOWN_ACTIVE))
         appState.uiState = (appState.uiState == UI_STATE_DROPDOWN_ACTIVE) ? UI_STATE_NONE : UI_STATE_DROPDOWN_ACTIVE;
 
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Draw"))
@@ -343,20 +357,48 @@ void RenderPreview(AppState* state) {
 
     int previewHeight = state->previewY * COMPONENT_SIZE + UI_HEIGHT;
     if (state->currentAction == ACTION_DRAW) {
-        if (state->dropdownBoxActive >= 0 && state->dropdownBoxActive <= 2) {
-            Texture2D previewTexture = (state->componentRotation == 0 || state->componentRotation == ROTATION_180) ?
-                state->componentInfos[state->dropdownBoxActive].texture :
-                state->componentInfos[state->dropdownBoxActive].textureRotated90;
-            DrawTexture(previewTexture, state->previewX * COMPONENT_SIZE, previewHeight, Fade(WHITE, 0.5f));
-        }
+        Texture2D previewTexture = (state->componentRotation == 0 || state->componentRotation == ROTATION_180) ?
+            state->componentInfos[state->dropdownBoxActive].texture :
+            state->componentInfos[state->dropdownBoxActive].textureRotated90;
+        DrawTexture(previewTexture, state->previewX * COMPONENT_SIZE, previewHeight, Fade(WHITE, 0.5f));
     }
 }
 
 // Function to load resources such as textures for components
 void LoadResources(AppState* state) {
-    LoadComponentTextures(&state->componentInfos[0], "resources/wire");
-    LoadComponentTextures(&state->componentInfos[1], "resources/resistor");
-    LoadComponentTextures(&state->componentInfos[2], "resources/capacitor");
+    int id = 0;
+    // Wire
+    state->componentInfos[id].nrOfRotations = 1;     // Save for each component how many rotations for resource management
+    LoadComponentTextures(&state->componentInfos[id], "resources/wire");
+    id++;
+    // Resistor
+    state->componentInfos[id].nrOfRotations = 1;
+    LoadComponentTextures(&state->componentInfos[id], "resources/resistor");
+    id++;
+    // Capacitor
+    state->componentInfos[id].nrOfRotations = 1;
+    LoadComponentTextures(&state->componentInfos[id], "resources/capacitor");
+    id++;
+    // Battery
+    state->componentInfos[id].nrOfRotations = 3;
+    LoadComponentTextures(&state->componentInfos[id], "resources/battery");
+    id++;
+    // Wire corner
+    state->componentInfos[id].nrOfRotations = 3;
+    LoadComponentTextures(&state->componentInfos[id], "resources/wire_corner");
+    id++;
+    // Wire intersection 3 way
+    state->componentInfos[id].nrOfRotations = 3;
+    LoadComponentTextures(&state->componentInfos[id], "resources/wire_intersection_3way");
+    id++;
+    // Wire intersection 4 way
+    state->componentInfos[id].nrOfRotations = 0;
+    LoadComponentTextures(&state->componentInfos[id], "resources/wire_intersection_4way");
+    id++;
+    // Probe
+    state->componentInfos[id].nrOfRotations = 0;
+    LoadComponentTextures(&state->componentInfos[id], "resources/probe");
+    id++;
 }
 
 // Function to load textures for a component from a base path
@@ -365,13 +407,22 @@ void LoadComponentTextures(ComponentInfo* info, const char* basePath) {
     
     snprintf(filePath, sizeof(filePath), "%s.png", basePath);
     info->texture = LoadTexture(filePath);
+    CheckTextureLoad(info->texture, filePath);
+    if (info->nrOfRotations == 0) return;        // If only one texture for the component, return
 
     snprintf(filePath, sizeof(filePath), "%s_rotated.png", basePath);
     info->textureRotated90 = LoadTexture(filePath);
-
-    // Load other rotations similarly if available
-    CheckTextureLoad(info->texture, filePath);
     CheckTextureLoad(info->textureRotated90, filePath);
+    if (info->nrOfRotations == 1) return;       // only 2 textures, return
+
+    snprintf(filePath, sizeof(filePath), "%s_rotated1.png", basePath);
+    info->textureRotated180 = LoadTexture(filePath);
+    CheckTextureLoad(info->textureRotated180, filePath);
+
+    snprintf(filePath, sizeof(filePath), "%s_rotated2.png", basePath);
+    info->textureRotated270 = LoadTexture(filePath);
+    CheckTextureLoad(info->textureRotated270, filePath);
+
 }
 
 // Function to check if a texture loaded correctly
