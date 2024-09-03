@@ -1,5 +1,5 @@
 #include "action_controller.h"
-#include "stdlib.h"
+
 
 // Function to handle the drawing action (placing a component on the grid)
 void HandleDrawAction(AppState* state) {

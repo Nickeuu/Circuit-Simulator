@@ -3,6 +3,7 @@
 
 #include "definitions.h"
 #include "app_state.h"
+#include "stdio.h"
 
 
 void HandleDrawAction(AppState* state);
