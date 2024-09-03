@@ -47,8 +47,7 @@ typedef enum {
     ACTION_NONE,
     ACTION_DRAW,
     ACTION_EDIT,
-    ACTION_DELETE,
-    ACTION_SIMULATE
+    ACTION_DELETE
 } ActionType;
 
 // Enumeration for UI state management
@@ -69,7 +68,7 @@ typedef struct {
 // Structure to hold information about each grid cell
 typedef struct {
     ComponentType type;
-    int value;
+    float resistance;
     int rotation;
 } Component;
 

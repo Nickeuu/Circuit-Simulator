@@ -6,7 +6,7 @@ void InitComponentsGrid(Component grid[GRID_WIDTH][GRID_HEIGHT]) {
     for (int x = 0; x < GRID_WIDTH; x++) {
         for (int y = 0; y < GRID_HEIGHT; y++) {
             grid[x][y].type = COMPONENT_EMPTY;  // Set each grid cell to empty
-            grid[x][y].value = 0;
+            grid[x][y].resistance = 0;
             grid[x][y].rotation = 0;
         }
     }

@@ -1,5 +1,8 @@
 // input.c
 #include "input.h"
+#include "action_controller.h"
+#include "components.h"
+
 
 void HandleInput(AppState* state) {
     // Mouse
@@ -23,7 +26,6 @@ void HandleInput(AppState* state) {
                 case ACTION_DRAW: HandleDrawAction(state); break;
                 case ACTION_DELETE: HandleDeleteAction(state); break;
                 case ACTION_EDIT: HandleEditAction(state); break;
-                case ACTION_SIMULATE: state->isSimulating = true; break;
             }
         }
         state->isPreviewing = false;

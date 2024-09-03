@@ -1,6 +1,15 @@
 // graphics.c
 #include "graphics.h"
 
+    // resistor_edit: controls initialization
+    //----------------------------------------------------------------------------------
+    bool ResistorEdit_ButtonSave = false;
+    bool ResistorEdit_ButtonCancel = false;
+    bool ResistorEdit_Window = true;
+    bool ResistorEdit_EditMode = false;
+    char ResistorEdit_Resistance[128] = "";
+    //----------------------------------------------------------------------------------
+
 
 void RenderGrid(AppState* state) {
     for (int x = 0; x < GRID_WIDTH; x++) {
@@ -30,31 +39,57 @@ void RenderUI(AppState* state) {
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 2 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Delete"))
         state->currentAction = ACTION_DELETE;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 3 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Simulate"))
-        state->currentAction = ACTION_SIMULATE;
+        state->isSimulating = !state->isSimulating;
  
     if (state->isEditing) {
         GuiUnlock();
-        
-        // Close the window if the X button is clicked
-        if (GuiWindowBox((Rectangle){300, 200, 250, 150}, "Edit Component")) {
-            state->isEditing = false;
-        } else {
-            // Text box for component value input
-            if (GuiTextBox((Rectangle){310, 250, 120, 30}, state->valueText, sizeof(state->valueText), true)) {
-                state->editValue = atof(state->valueText);  // Convert text input to float
-            }
 
-            // Apply button to save changes
-            if (GuiButton((Rectangle){310, 300, 100, 30}, "Apply")) {
-                state->grid[state->editX][state->editY].value = (int)state->editValue;  // Cast to int if needed
-                state->isEditing = false;
-            }
+        // Resistor edit
+        //----------------------------------------------------------------------------------
+        if (state->grid[state->editX][state->editY].type == COMPONENT_RESISTOR){
+            if (ResistorEdit_Window)
+            {
 
-            // Cancel button to discard changes
-            if (GuiButton((Rectangle){420, 300, 100, 30}, "Cancel")) {
-                state->isEditing = false;
+                ResistorEdit_Window = !GuiWindowBox((Rectangle){ 312, 256, 336, 144 }, "Edit Resistor");
+                ResistorEdit_ButtonSave = GuiButton((Rectangle){ 336, 352, 120, 24 }, "Save"); 
+                ResistorEdit_ButtonCancel = GuiButton((Rectangle){ 504, 352, 120, 24 }, "Cancel"); 
+                if (GuiTextBox((Rectangle){ 408, 304, 144, 24 }, state->valueText, sizeof(state->valueText), ResistorEdit_EditMode)) {
+                    ResistorEdit_EditMode = !ResistorEdit_EditMode;
+                    state->editValue = atof(state->valueText);  // Convert text input to float
+                } 
+                GuiLabel((Rectangle){ 336, 304, 120, 24 }, "Resistance");
+
+                // Handle save
+                if (ResistorEdit_ButtonSave){
+                    state->grid[state->editX][state->editY].resistance = state->editValue;  // Cast to int if needed
+                    state->isEditing = false;
+                }
+
             }
         }
+        //----------------------------------------------------------------------------------    
+
+        
+        // // Close the window if the X button is clicked
+        // if (GuiWindowBox((Rectangle){300, 200, 250, 150}, "Edit Component")) {
+        //     state->isEditing = false;
+        // } else {
+        //     // Text box for component value input
+        //     if (GuiTextBox((Rectangle){310, 250, 120, 30}, state->valueText, sizeof(state->valueText), true)) {
+        //         state->editValue = atof(state->valueText);  // Convert text input to float
+        //     }
+
+        //     // Apply button to save changes
+        //     if (GuiButton((Rectangle){310, 300, 100, 30}, "Apply")) {
+        //         state->grid[state->editX][state->editY].value = (int)state->editValue;  // Cast to int if needed
+        //         state->isEditing = false;
+        //     }
+
+        //     // Cancel button to discard changes
+        //     if (GuiButton((Rectangle){420, 300, 100, 30}, "Cancel")) {
+        //         state->isEditing = false;
+        //     }
+        // }
         
         GuiLock();
     }
