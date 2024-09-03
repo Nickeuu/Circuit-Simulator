@@ -13,6 +13,8 @@
 		"*.m": "c",
 		"*.tcc": "c",
 		"ostream": "c",
-		"typeinfo": "c"
+		"typeinfo": "c",
+		"app_state.h": "c",
+		"stdlib.h": "c"
 	}
 }
