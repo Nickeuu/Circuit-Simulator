@@ -4,6 +4,8 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+#include "input.h"
+
 // Screen and UI dimensions
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -18,6 +20,7 @@ int main(void) {
         ClearBackground(RAYWHITE);
         Render(appState);
         EndDrawing();
+        
     }
 
     CleanupAppState(appState);

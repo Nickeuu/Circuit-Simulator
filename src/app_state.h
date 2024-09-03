@@ -5,6 +5,7 @@
 #include "raylib.h"
 
 
+
 typedef struct AppState {
     Component grid[GRID_WIDTH][GRID_HEIGHT];         // Grid of components
     ComponentInfo componentInfos[NUMBER_OF_COMPONENTS]; // Info about available components
