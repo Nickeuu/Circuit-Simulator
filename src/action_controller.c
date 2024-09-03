@@ -5,6 +5,7 @@
 void HandleDrawAction(AppState* state) {
     state->grid[state->previewX][state->previewY].type = state->dropdownBoxActive + 1;
     state->grid[state->previewX][state->previewY].rotation = state->componentRotation;
+    state->grid[state->previewX][state->previewY].value = 0;
 }
 
 // Function to handle the delete action (removing a component from the grid)
