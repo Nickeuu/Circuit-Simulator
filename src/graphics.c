@@ -19,7 +19,7 @@ void RenderUI(AppState* state) {
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
     GuiSetStyle(DROPDOWNBOX, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
-    if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor;Battery;Wire corner;Wire intersection (3 way);Wire intersection (4 way)", 
+    if (GuiDropdownBox((Rectangle){ 25, 65, 125, 30 }, "Wire;Resistor;Capacitor;Battery;Wire corner;Wire intersection (3 way);Wire intersection (4 way);Probe", 
         &state->dropdownBoxActive, state->uiState == UI_STATE_DROPDOWN_ACTIVE))
         state->uiState = (state->uiState == UI_STATE_DROPDOWN_ACTIVE) ? UI_STATE_NONE : UI_STATE_DROPDOWN_ACTIVE;
 
