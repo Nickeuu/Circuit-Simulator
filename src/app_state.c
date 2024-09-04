@@ -3,6 +3,7 @@
 #include "graphics.h"
 #include "input.h"
 #include "resources.h"
+#include "components.h"
 
 AppState* InitializeAppState(int screenWidth, int screenHeight) {
     AppState* state = (AppState*)malloc(sizeof(AppState));
@@ -18,6 +19,8 @@ AppState* InitializeAppState(int screenWidth, int screenHeight) {
     state->currentAction = ACTION_NONE;
     state->uiState = UI_STATE_NONE;
     state->isSimulating = false;
+    state->saveFileDecision = false;
+    state->saveFile = false;
 
     InitComponentsGrid(state->grid);  // Initialize the grid with empty components
 
@@ -38,4 +41,11 @@ void Render(AppState* state) {
     RenderGrid(state);
     RenderUI(state);
     RenderPreview(state);
+}
+
+void SaveFile(AppState* state) {
+    if (state->saveFile) {
+        
+    }
+    return;
 }

@@ -4,7 +4,6 @@
 
 #include "definitions.h"
 #include "app_state.h"
-#include "raygui.h"
 #include "stdlib.h"
 
 
@@ -13,5 +12,6 @@ void RenderUI(AppState* state);
 void RenderPreview(AppState* state);
 void DrawComponent(ComponentType type, AppState* state, int x, int y, int gridY);
 Texture2D GetRotatedTexture(int rotation, ComponentInfo* info);
+void RenderSaveFile(AppState* state);
 
 #endif

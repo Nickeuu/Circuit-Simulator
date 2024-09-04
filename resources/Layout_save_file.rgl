@@ -1,0 +1,14 @@
+#
+# rgl layout text file (v4.0) - raygui layout file generated using rGuiLayout
+#
+# Number of controls:     4
+#
+# Ref. window:    r <x> <y> <width> <height>
+# Anchor info:    a <id> <name> <posx> <posy> <enabled>
+# Control info:   c <id> <type> <name> <rectangle> <anchor_id> <text>
+#
+r 0 0 -1 -1
+c 000 5 Button002 336 352 120 24 0 Save
+c 001 5 Button003 504 352 120 24 0 Cancel
+c 002 0 WindowBox001 312 256 336 144 0 Save file
+c 003 4 Label004 456 304 120 24 0 Save file?

@@ -78,3 +78,7 @@ void UnloadResources(AppState* state) {
         UnloadTexture(state->componentInfos[i].textureRotated270);
     }
 }
+
+void RenderFileSave(AppState* state) {
+
+}

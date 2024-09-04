@@ -14,6 +14,8 @@ typedef struct AppState {
     bool isPreviewing;                               // Flag for preview mode
     bool isEditing;                                  // Flag for edit mode
     bool isSimulating;                               // Flag for simulating mode
+    bool saveFileDecision;                           // Flag for if file is saved or not
+    bool saveFile;
     int previewX, previewY;                          // Preview position on the grid
     int dropdownBoxActive;                           // Index of the active dropdown box selection
     int componentRotation;                           // Current rotation of the component
@@ -27,5 +29,6 @@ typedef struct AppState {
 AppState* InitializeAppState(int screenWidth, int screenHeight);
 void CleanupAppState(AppState* state);
 void Render(AppState* state);
+void SaveFile(AppState* state);
 
 #endif

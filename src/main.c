@@ -7,6 +7,10 @@
 #include "definitions.h"
 #include "input.h"
 #include "simulator.h"
+#include "graphics.h"
+#include "action_controller.h"
+#include "components.h"
+#include "resources.h"
 
 
 int main(void) {
@@ -21,6 +25,14 @@ int main(void) {
         if (appState->isSimulating) Simulator(appState);
         EndDrawing();
     }
+
+    while (!appState->saveFileDecision) {
+        BeginDrawing();
+        RenderSaveFile(appState);
+        SaveFile(appState);
+        EndDrawing();
+    }
+    
 
     CleanupAppState(appState);
     return 0;

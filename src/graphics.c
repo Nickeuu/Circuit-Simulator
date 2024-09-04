@@ -1,5 +1,6 @@
 // graphics.c
 #include "graphics.h"
+#include "raygui.h"
 
     // resistor_edit: controls initialization
     //----------------------------------------------------------------------------------
@@ -8,6 +9,13 @@
     bool ResistorEdit_Window = true;
     bool ResistorEdit_EditMode = false;
     char ResistorEdit_Resistance[128] = "";
+    //----------------------------------------------------------------------------------
+
+    // save_file: controls initialization
+    //----------------------------------------------------------------------------------
+    bool SaveFile_ButtonSave = false;
+    bool SaveFile_ButtonCancel = false;
+    bool SaveFile_Window = true;
     //----------------------------------------------------------------------------------
 
 
@@ -24,6 +32,7 @@ void RenderGrid(AppState* state) {
 
 void RenderUI(AppState* state) {
     if (!state->isEditing) GuiUnlock();
+
     GuiPanel(state->uiLocation, "Control Panel");
 
     GuiSetStyle(DROPDOWNBOX, TEXT_PADDING, 4);
@@ -44,12 +53,13 @@ void RenderUI(AppState* state) {
     if (state->isEditing) {
         GuiUnlock();
 
-        // Resistor edit
-        //----------------------------------------------------------------------------------
-        if (state->grid[state->editX][state->editY].type == COMPONENT_RESISTOR){
+        switch (state->grid[state->editX][state->editY].type)
+        {
+            // Resistor edit
+            //----------------------------------------------------------------------------------
+        case COMPONENT_RESISTOR:
             if (ResistorEdit_Window)
             {
-
                 ResistorEdit_Window = !GuiWindowBox((Rectangle){ 312, 256, 336, 144 }, "Edit Resistor");
                 ResistorEdit_ButtonSave = GuiButton((Rectangle){ 336, 352, 120, 24 }, "Save"); 
                 ResistorEdit_ButtonCancel = GuiButton((Rectangle){ 504, 352, 120, 24 }, "Cancel"); 
@@ -60,14 +70,26 @@ void RenderUI(AppState* state) {
                 GuiLabel((Rectangle){ 336, 304, 120, 24 }, "Resistance");
 
                 // Handle save
-                if (ResistorEdit_ButtonSave){
+                if (ResistorEdit_ButtonSave) {
                     state->grid[state->editX][state->editY].resistance = state->editValue;  // Cast to int if needed
                     state->isEditing = false;
                 }
 
+                // Handle cancel
+                if (ResistorEdit_ButtonCancel) state->isEditing = false;
+
+                // Handle windows close
+                if (!ResistorEdit_Window) state->isEditing = false;
             }
+            
+            break;
+            //----------------------------------------------------------------------------------
+        
+        default:
+            state->isEditing = false;
+            break;
         }
-        //----------------------------------------------------------------------------------    
+            
 
         
         // // Close the window if the X button is clicked
@@ -133,4 +155,30 @@ Texture2D GetRotatedTexture(int rotation, ComponentInfo* info) {
         case ROTATION_270: return info->textureRotated270;
         default: return info->texture;
     }
+}
+
+void RenderSaveFile(AppState* state) {
+    // raygui: controls drawing
+            //----------------------------------------------------------------------------------
+            if (SaveFile_Window)
+            {
+                SaveFile_Window = !GuiWindowBox((Rectangle){ 312, 256, 336, 144 }, "Save file");
+                SaveFile_ButtonSave = GuiButton((Rectangle){ 336, 352, 120, 24 }, "Save"); 
+                SaveFile_ButtonCancel = GuiButton((Rectangle){ 504, 352, 120, 24 }, "Cancel"); 
+                GuiLabel((Rectangle){ 456, 304, 120, 24 }, "Save file?");
+
+                // Handle save
+                if (SaveFile_ButtonSave) {
+                    state->saveFile = true;
+                    state->saveFileDecision = true;
+                }
+
+                // Handle cancel
+                if (SaveFile_ButtonCancel) {
+                    state->saveFile = false;
+                    state->saveFileDecision = true;
+                }
+            }
+            //----------------------------------------------------------------------------------
+    return;
 }
