@@ -4,6 +4,7 @@
 #include "input.h"
 #include "resources.h"
 #include "components.h"
+#include "file_manager.h"
 
 AppState* InitializeAppState(int screenWidth, int screenHeight) {
     AppState* state = (AppState*)malloc(sizeof(AppState));
@@ -45,7 +46,8 @@ void Render(AppState* state) {
 
 void SaveFile(AppState* state) {
     if (state->saveFile) {
-        
+        saveFile("save.dat", state->grid);
+        printf("File saved\n");
     }
     return;
 }

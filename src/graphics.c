@@ -49,6 +49,12 @@ void RenderUI(AppState* state) {
         state->currentAction = ACTION_DELETE;
     if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 3 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Simulate"))
         state->isSimulating = !state->isSimulating;
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 4 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Load"))
+        loadFile("save.dat", state->grid);
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 5 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Save"))
+        saveFile("save.dat", state->grid);
+    if (GuiButton((Rectangle){ BUTTON_X_POSITION_START + 6 * BUTTON_X_POSITION_OFFSET, BUTTON_Y_POSITION, BUTTON_WIDTH, BUTTON_HEIGHT }, "Clear"))
+        InitComponentsGrid(state->grid);
  
     if (state->isEditing) {
         GuiUnlock();
@@ -158,6 +164,7 @@ Texture2D GetRotatedTexture(int rotation, ComponentInfo* info) {
 }
 
 void RenderSaveFile(AppState* state) {
+    GuiUnlock();
     // raygui: controls drawing
             //----------------------------------------------------------------------------------
             if (SaveFile_Window)
@@ -174,10 +181,11 @@ void RenderSaveFile(AppState* state) {
                 }
 
                 // Handle cancel
-                if (SaveFile_ButtonCancel) {
+                if (SaveFile_ButtonCancel || !SaveFile_Window) {
                     state->saveFile = false;
                     state->saveFileDecision = true;
                 }
+                
             }
             //----------------------------------------------------------------------------------
     return;

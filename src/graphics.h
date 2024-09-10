@@ -5,6 +5,7 @@
 #include "definitions.h"
 #include "app_state.h"
 #include "stdlib.h"
+#include "file_manager.h"
 
 
 void RenderGrid(AppState* state);

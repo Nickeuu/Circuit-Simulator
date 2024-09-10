@@ -11,6 +11,7 @@
 #include "action_controller.h"
 #include "components.h"
 #include "resources.h"
+#include "file_manager.h"
 
 
 int main(void) {
@@ -22,7 +23,7 @@ int main(void) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
         Render(appState);
-        if (appState->isSimulating) Simulator(appState);
+        if (appState->isSimulating) Simulate(appState);
         EndDrawing();
     }
 

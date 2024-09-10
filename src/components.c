@@ -23,11 +23,11 @@ void RotateComponent(AppState* state) {
         // Check for components with only 1 rotation
         if (state->componentInfos[componentType].nrOfRotations == 1) {
             state->componentRotation += ROTATION_90;
-            if (state->componentRotation == ROTATION_180) state->componentRotation = 0;
+            if (state->componentRotation >= ROTATION_180) state->componentRotation = 0;
         } else {
             // Components with all 3 rotations
             state->componentRotation += ROTATION_90;
-            if (state->componentRotation == ROTATION_360) state->componentRotation = 0;
+            if (state->componentRotation >= ROTATION_360) state->componentRotation = 0;
         }
     }
 }
