@@ -23,7 +23,10 @@ int main(void) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
         Render(appState);
-        if (appState->isSimulating) Simulate(appState);
+        if (appState->isSimulating) {
+            Simulate(appState);
+            appState->isSimulating = false;
+        } 
         EndDrawing();
     }
 

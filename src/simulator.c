@@ -15,13 +15,6 @@ typedef struct {
     int count;
 } ResistanceList;
 
-// Function to calculate the parallel resistance of two resistors
-double parallel_resistance(double r1, double r2) {
-    if (r1 == 0 || r2 == 0) {
-        return 0; // Short circuit condition
-    }
-    return 1.0 / ((1.0 / r1) + (1.0 / r2));
-}
 
 // Function to calculate the equivalent parallel resistance for a list of resistances
 double calculate_parallel_equivalent(ResistanceList *list) {
@@ -117,6 +110,18 @@ void get_valid_directions(Component component, bool *validDirections) {
             validDirections[3] = true; // Right
             printf("[DEBUG] 4-Way Intersection: All Directions\n");
             break;
+
+        case COMPONENT_RESISTOR:
+            if (rotation == 0 || rotation == 180) {
+                validDirections[2] = true; // Left
+                validDirections[3] = true; // Right
+                printf("[DEBUG] Resistor: Horizontal (Left-Right)\n");
+            } else if (rotation == 90 || rotation == 270) {
+                validDirections[0] = true; // Up
+                validDirections[1] = true; // Down
+                printf("[DEBUG] Resistor: Vertical (Up-Down)\n");
+            }
+            break;
     }
 }
 
@@ -147,7 +152,7 @@ void dfs(AppState *state, int currentX, int currentY, int endX, int endY,
     }
 
     // If it's a probe, save the current resistance
-    if (currentComponent.type == COMPONENT_PROBE && !(currentX == endX && currentY == endY)) {
+    if (currentComponent.type == COMPONENT_PROBE && (currentX == endX && currentY == endY)) {
         resList->resistances[resList->count++] = currentResistance;
         printf("[DEBUG] Found End Probe at X: %d, Y: %d, Total Resistance: %f\n", currentX, currentY, currentResistance);
         return;
@@ -207,7 +212,9 @@ double calculate_total_resistance(AppState *state, Position start, Position end)
 
     printf("[DEBUG] Starting DFS from Probe at X: %d, Y: %d to Probe at X: %d, Y: %d\n", start.x, start.y, end.x, end.y);
 
-    dfs(state, start.x, start.y, end.x, end.y, visited, 0.0, &resList);
+    visited[start.x][start.y] = true;
+
+    dfs(state, start.x + 1, start.y, end.x, end.y, visited, 0.0, &resList);
 
     if (resList.count == 0) {
         printf("[DEBUG] No path found between probes.\n");
@@ -226,6 +233,9 @@ double calculate_total_resistance(AppState *state, Position start, Position end)
 
 // Function to initiate resistance calculation between probes
 void FollowPath(AppState *state) {
+
+    printf("---------- Simulation ----------\n---------- ---------- ----------\n---------- __________ ----------\n");
+
     Position probes[MAX_PATHS];
     int probe_count = 0;
 
